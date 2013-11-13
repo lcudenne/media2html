@@ -1,0 +1,1192 @@
+#!/bin/bash
+
+#######################################################################
+# MEDIA2HTML
+# 
+# Website: https://sites.google.com/site/media2html
+# Author: Loic Cudennec <loic@cudennec.fr>
+#
+# This program generates a static HTML5/CSS3 website from a regular
+# file system structure, focusing on media files (images, audio files,
+# video files and text files). In each directory, a HTML file is
+# created, embedding an audio-video player and a playlist made of all
+# the compatible media files found at this level. An explorer view is
+# also proposed in order to open and download files, as well as to
+# navigate to the other directories. This program makes use of
+# jPlayer (http://www.jplayer.org/) and
+# ExifTool (http://www.sno.phy.queensu.ca/~phil/exiftool/).
+#
+#######################################################################
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#######################################################################
+
+
+
+
+
+#######################################################################
+# Definitions
+#######################################################################
+
+# This script version
+SCRIPTVERSION="20130820"
+
+# This script invocation
+SCRIPTNAME="${0}"
+
+# This script description
+DESCRIPTION="media2html is a portable bash script that generates a static website from a given file system directory. The website embeds a complete HTML5 audio and video player, as well as a file browser."
+
+# Prefix directory to process
+PREFIX="."
+
+# Targeted site URL
+SITEURL=""
+
+# Style name (see in media2htmldata/styles/ directory)
+STYLE="yellow"
+
+# Player name (see in media2htmldata/players/ directory)
+PLAYER="jplayer"
+
+# Output file name
+OUTPUTNAME="index.html"
+
+# Google Analytics ID
+GOOGLEANALYTICS=""
+
+# Google Search CX
+GOOGLESEARCH=""
+
+# Facebook like box
+FACEBOOKLIKEBOX=""
+
+# Soundcloud widget
+SOUNDCLOUD=""
+
+# ExifTool Path
+EXIFTOOL=""
+
+# Convert Path
+CONVERT=""
+
+# Enable zip compression to download files
+ENABLEZIP=0
+
+# Generate XSPF playlist
+GENERATEXSPF=0
+GLOBALXSPF=0
+GLOBALXSPFPLAYLIST=""
+
+# Generate playlist player
+PLAYLISTPLAYER=1
+
+# Generate HTML
+GENERATEHTML=1
+KEYWORDS="media2html"
+
+# Regexp CSS style
+REGEXPSTYLE=""
+
+# Maxdepth
+MAXDEPTHUNSET=-1
+MAXDEPTH=${MAXDEPTHUNSET}
+
+# Link items
+LINKITEMS=""
+
+# Print file list (newline)
+PRINTLIST=0
+
+# Print file list (null)
+PRINTLIST0=0
+PRINTLIST0OPT=""
+
+# Return codes
+EXIT_SUCCESS=0
+EXIT_FAILED=1
+
+# Extracted tags
+TAGTITLE=""
+TAGARTIST=""
+TAGALBUM=""
+TAGCOMMENT=""
+TAGTRACKNUMBER=""
+TAGGENRE=""
+TAGDURATION=""
+TAGDATE=""
+TAGVENDOR=""
+TAGFILETYPE=""
+TAGMIMETYPE=""
+TAGFILESIZE=""
+TAGAUDIOCHANNELS=""
+TAGSAMPLERATE=""
+TAGAUDIOBITRATE=""
+TAGCHANNELMODE=""
+TAGENCODER=""
+TAGIMAGEWIDTH=""
+TAGIMAGEHEIGHT=""
+TAGTRACK=""
+TAGIMAGE=""
+TAGNOMINALBITRATE=""
+TAGFRAMERATE=""
+TAGVIDEOFRAMERATE=""
+TAGYEAR=""
+
+# Media2html file extensions
+M2HIMAGE="m2himage"
+M2HLINK="m2hlink"
+
+
+#######################################################################
+# Send error message to stderr
+#######################################################################
+echoerr() { printf "$@" 1>&2; }
+
+
+#######################################################################
+# Display general help (use --help)
+#######################################################################
+printhelp() {
+ echo "This is media2html ${SCRIPTVERSION}."
+ echo "Check out the project website: https://sites.google.com/site/media2html"
+ echo "USAGE ${0} [options]"
+ echo "OPTIONS"
+ echo "  --prefix           <PATH>  Set the processed directory to PATH. Default is current directory."
+ echo "  --site-url         <URL>   Set the targeted site URL. This is used to prefix track locations in XSPF playlists."
+ echo "                             If you apply this script to the /home/me/Music prefix and you upload the Music/ fodler to"
+ echo "                             http://www.mywebsite.com/, use http://www.mywebsite.com/Music as a site URL."
+ echo "  --player           <NAME>  Set the embedded player. See in the media2html/players/ directory. Default is ${PLAYER}."
+ echo "  --style            <NAME>  Set the CSS style. See in the media2htmldata/styles/ directory. Default is ${STYLE}."
+ echo "  --output           <NAME>  Set the NAME of the generated HTML files. Default is index.html."
+ echo "  --google-analytics <ID>    Add a Google Analytics tracking code to each web page."
+ echo "                             Your personal Analytics ID looks like UA-xxxxxxx-x"
+ echo "                             http://www.google.com/analytics/"
+ echo "  --google-search    <ID>    Add a Custom Google Search box to each web page."
+ echo "                             Your personal Search ID looks like 011737558837375720776:mbfrjmyam1g"
+ echo "                             http://www.google.fr/cse/"
+ echo "  --facebook         <URL>   Add a Facebook Like Box widget showing your page stream located at URL."
+ echo "  --soundcloud       <ID>    Add a Soundcloud widget showing the music stream."
+ echo "                             To get your ID, use the share button on the profile page,"
+ echo "                             and get it from the URL given by the WordPress Code, that looks:"
+ echo "                             http://api.soundcloud.com/users/ID"
+ echo "  --link             <URL>   Add a link to a given URL. You can repeat this option in the same command line."
+ echo "                             This can be used to add social networks."
+ echo "                             Add URLs within quotes to prevent special characters misinterpretation."
+ echo "  --exiftool         <PATH>  Set the PATH to the exiftool command-line application."
+ echo "                             ExifTool is used to read metadata and tags from media files."
+ echo "                             Just download this tool and extract wherever you want. No need to install."
+ echo "                             http://www.sno.phy.queensu.ca/~phil/exiftool/"
+ echo "                             If this option is not set, media2html will search for exiftool in your \$PATH environment."
+ echo "                             No metadata will be processed otherwise (except for mp3 ID3TAG v1)."
+ echo "  --convert          <PATH>  Set the PATH to the convert command-line application."
+ echo "                             Convert is used to create thumbnails from image files. Size is up to 256x512px."
+ echo "                             Install the ImageMagick package or follow instructions on this site."
+ echo "                             http://www.imagemagick.org"
+ echo "                             If this option is not set, media2html will search for convert in your \$PATH environment."
+ echo "                             No thumbnails will be created otherwise."
+ echo "  --zip                      Enable ZIP compression to download files. Generates one ZIP file per folder."
+ echo "  --xspf                     Generate one XSPF playlist per folder."
+ echo "  --xspf-global              Generate a global XSPF playlist."
+ echo "  --no-player                Disable the playlist player."
+ echo "  --no-html                  Disable the HTML output."
+ echo "  --print                    Print the list of generated files to the standard output,"
+ echo "                             delimited by the newline character."
+ echo "  --print0                   Print the list of generated files to the standard output,"
+ echo "                             delimited by the null character."
+ echo "  --regexp           <EXP>   Apply the EXP regular expression to the style.css file."
+ echo "                             Please use the sed -e \'EXP\' syntax."
+ echo "  --maxdepth         <DEPTH> Descend at most DEPTH directory levels below the target directory to process,"
+ echo "                             '--maxdepth 1' only processes files in the target directory."
+ echo "                             This option may be used within a Makefile to update selected directories"
+ echo "                             or to apply different styles to different directories."
+ echo "                             Default is unset, recursively processing the whole sub-tree."
+ echo "  --version                  Display the script version."
+ echo "  --help                     Display this information."
+ echo "EXAMPLES"
+ echo "  ${0}"
+ echo "                             This will process the current directory."
+ echo "  ${0} --prefix /Users/Me/Music --style green"
+ echo "                             This will process the Music directory using the green style."
+ echo "  ${0} --link \"https://sites.google.com/site/media2html\" --link \"http://www.jplayer.org/\""
+ echo "                             This will add both site links on each generated html page."
+ echo "  ${0} --exiftool ~/dev/src/Image-ExifTool-9.23/"
+ echo "                             This will use the given path to find the exiftool application."
+ echo "  ${0} --maxdepth 1"
+ echo "                             This will only process the files in the current directory."
+ echo "DIAGNOSTICS"
+ echo "  The ${0} utility exits ${EXIT_SUCCESS} on success, and ${EXIT_FAILED} otherwise."
+}
+
+
+
+
+
+
+#######################################################################
+# Arg $1: Path name
+# Arg $2: File name
+#######################################################################
+printFileList() {
+
+ if [[ ${PRINTLIST} -eq 1 ]]; then
+     toprint="${1}/${2}\n"
+ fi
+ if [[ ${PRINTLIST0} -eq 1 ]]; then
+     toprint="${1}/${2}\0"
+ fi
+
+ if [ "${toprint:0:1}" = "/" ]; then
+     toprint=${toprint:1:${#toprint}-1}
+ fi
+
+ printf "${toprint}"
+
+}
+
+
+#######################################################################
+# Arg $1: link url
+#######################################################################
+addLinkItem() {
+
+    linktype="link"
+    linktypelist=( facebook flickr google last linkedin myspace picasa rss twitter vimeo youtube )
+
+    for vartype in "${linktypelist[@]}";
+    do
+     if [[ "${1}" = *"${vartype}"* ]]; then
+	linktype="${vartype}"
+     fi
+    done
+
+    LINKITEMS="${LINKITEMS} <div class=\"linkitem\"><a href=\"${1}\" target=\"_blank\"><img class=\"linkitemimg\" src=\"@DEEPNESSmedia2htmldata/styles/${STYLE}/${linktype}.png\" title=\"${1}\" alt=\"${1}\" /></a></div>\n"
+
+}
+
+
+#######################################################################
+# Arg $1: html file name
+#######################################################################
+stampGoogleAnalytics() {
+
+    printf "\n<script type=\"text/javascript\">\n  var _gaq = _gaq || [];\n  _gaq.push(['_setAccount', '${GOOGLEANALYTICS}']);\n  _gaq.push(['_trackPageview']);\n  (function() {\n    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;\n    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';\n\n    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);\n  })();\n</script>\n" >> $1
+
+}
+
+#######################################################################
+# Arg $1: html file name
+#######################################################################
+stampGoogleSearchScript() {
+
+    printf "<script type=\"text/javascript\" src=\"http://www.google.com/jsapi\"></script>\n    <script type=\"text/javascript\">\n    google.load('search', '1');\n    function onLoad() {\n        var customSearchControl = new google.search.CustomSearchControl('${GOOGLESEARCH}');\n        var drawOptions = new google.search.DrawOptions();\n        drawOptions.setInput(document.getElementById('googlesearchinput'));\n        customSearchControl.draw('googlesearchresults', drawOptions);\n    }\n    google.setOnLoadCallback(onLoad);\n    </script>\n" >> $1
+
+}
+
+#######################################################################
+# Arg $1: html file name
+#######################################################################
+stampGoogleSearch() {
+
+ printf "<div id=\"googlesearcharea\">\n <input type=\"text\" id=\"googlesearchinput\" placeholder=\"Google this site..\" />\n  </div><div id=\"googlesearchresults\"></div>\n" >> $1
+
+}
+
+
+
+#######################################################################
+# Arg $1: html file name
+#######################################################################
+stamp_jplayer() {
+
+    printf "<div id=\"jquery_jplayer_1\" class=\"jp-jplayer\"></div>\n<div id=\"jp_container_1\" class=\"jp-audio\"\nstyle=\"width: 570px;\">\n<div class=\"jp-type-playlist\">\n<div class=\"jp-gui jp-interface\">\n<ul class=\"jp-controls\">\n<li><a href=\"javascript:;\" class=\"jp-previous\" tabindex=\"1\">previous</a></li>\n<li><a href=\"javascript:;\" class=\"jp-play\" tabindex=\"1\">play</a></li>\n<li><a href=\"javascript:;\" class=\"jp-pause\" tabindex=\"1\">pause</a></li>\n<li><a href=\"javascript:;\" class=\"jp-next\" tabindex=\"1\">next</a></li>\n<li><a href=\"javascript:;\" class=\"jp-stop\" tabindex=\"1\">stop</a></li>\n<li><a href=\"javascript:;\" class=\"jp-mute\" tabindex=\"1\" title=\"mute\">mute</a></li>\n<li><a href=\"javascript:;\" class=\"jp-unmute\" tabindex=\"1\" title=\"unmute\">unmute</a></li>\n<li><a href=\"javascript:;\" class=\"jp-volume-max\" tabindex=\"1\" title=\"max volume\">max volume</a></li>\n</ul>\n<div class=\"jp-progress\">\n<div class=\"jp-seek-bar\">\n<div class=\"jp-play-bar\"></div>\n</div>\n</div>\n<div class=\"jp-volume-bar\">\n<div class=\"jp-volume-bar-value\"></div>\n</div>\n<div class=\"jp-time-holder\">\n<div class=\"jp-current-time\"></div>\n<div class=\"jp-duration\"></div>\n</div>\n<ul class=\"jp-toggles\">\n<li><a href=\"javascript:;\" class=\"jp-shuffle\" tabindex=\"1\" title=\"shuffle\">shuffle</a></li>\n<li><a href=\"javascript:;\" class=\"jp-shuffle-off\" tabindex=\"1\" title=\"shuffle off\">shuffle off</a></li>\n<li><a href=\"javascript:;\" class=\"jp-repeat\" tabindex=\"1\" title=\"repeat\">repeat</a></li>\n<li><a href=\"javascript:;\" class=\"jp-repeat-off\" tabindex=\"1\" title=\"repeat off\">repeat off</a></li>\n</ul>\n</div>\n<div class=\"jp-playlist\"  style=\"height: 386px; overflow-y: auto !important; overflow-x: hidden !important\">\n<ul>\n<li></li>\n</ul>\n</div>\n" >> $1
+
+    printf "<div class=\"jp-no-solution\">\n<span>Update Required</span>\nTo play the media you will need to either update your browser to a recent version or update your <a href=\"http://get.adobe.com/flashplayer/\" target=\"_blank\">Flash plugin</a>.\n</div>\n" >> $1
+
+    printf "</div>\n</div>\n" >> $1
+
+}
+
+
+#######################################################################
+# Arg $1: html file name
+#######################################################################
+stamp_codebasehero() {
+
+    printf "<div id=\"codebaseherodiv\"><div id=\"codebasehero\"></div></div>\n" >> $1
+
+}
+
+#######################################################################
+# Arg $1: html file name
+# Arg $2: Path deepness ("../../")
+#######################################################################
+stamp_dewplayer() {
+
+    printf "<div class=\"dewplayerdiv\"><object type=\"application/x-shockwave-flash\" data=\"${2}media2htmldata/players/${PLAYER}/dewplayer-playlist-cover.swf\" width=\"240\" height=\"200\" id=\"dewplayer\" name=\"dewplayer\">\n <param name=\"wmode\" value=\"transparent\" />\n <param name=\"movie\" value=\"${2}media2htmldata/players/${PLAYER}/dewplayer-playlist-cover.swf\" />\n <param name=\"flashvars\" value=\"showtime=true&autoreplay=true&xml=playlist.xspf\" />\n</object></div>\n" >> $1
+			
+}
+
+#######################################################################
+# Arg $1: html file name
+# Arg $2: Path deepness ("../../")
+#######################################################################
+stamp_dewplayervinyl() {
+
+    printf "<div class=\"dewplayervinyldiv\"><object data=\"${2}media2htmldata/players/${PLAYER}/dewplayer-vinyl-en.swf\" width=\"303\" height=\"113\" name=\"dewplayer\" id=\"dewplayer\" type=\"application/x-shockwave-flash\">\n <param name=\"movie\" value=\"${2}media2htmldata/players/${PLAYER}/dewplayer-vinyl-en.swf\" />\n <param name=\"flashvars\" value=\"xml=playlist.xspf&javascript=off\" />\n <param name=\"wmode\" value=\"transparent\" />\n</object></div>\n" >> $1
+
+}
+
+#######################################################################
+# Arg $1: html file name
+# Arg $2: Path deepness ("../../")
+#######################################################################
+stamp_xspfplayer() {
+
+    printf "<div class=\"xspfplayerdiv\"><object type=\"application/x-shockwave-flash\" width=\"512\" height=\"300\" data=\"${2}media2htmldata/players/${PLAYER}/xspf_player.swf?playlist_url=playlist.xspf\">\n <param name=\"movie\" value=\"${2}media2htmldata/players/${PLAYER}/xspf_player.swf?playlist_url=playlist.xspf\" />\n <param name=\"info_button_text\" value=\"Info\" />\n</object></div>\n" >> $1
+
+}
+
+
+
+#######################################################################
+# Arg $1: file name
+# Arg $2: file name as title
+#######################################################################
+extractTags() {
+
+    TAGTITLE=""
+    TAGARTIST=""
+    TAGALBUM=""
+    TAGCOMMENT=""
+    TAGTRACKNUMBER=""
+    TAGGENRE=""
+    TAGDURATION=""
+    TAGDATE=""
+    TAGVENDOR=""
+    TAGFILETYPE=""
+    TAGMIMETYPE=""
+    TAGFILESIZE=""
+    TAGAUDIOCHANNELS=""
+    TAGSAMPLERATE=""
+    TAGAUDIOBITRATE=""
+    TAGCHANNELMODE=""
+    TAGENCODER=""
+    TAGIMAGEWIDTH=""
+    TAGIMAGEHEIGHT=""
+    TAGTRACK=""
+    TAGIMAGE=""
+    TAGNOMINALBITRATE=""
+    TAGFRAMERATE=""
+    TAGVIDEOFRAMERATE=""
+    TAGCODECID=""
+    TAGYEAR=""
+
+    if [ ! "${EXIFTOOL}" = "" ]; then
+
+	${EXIFTOOL} -s2 "${1}" > media2html_exiftool 2> /dev/null
+	${EXIFTOOL} -s3 -b -picture "${1}" > "${1}.picture" 2> /dev/null
+
+	TAGTITLE=`grep ^Title: media2html_exiftool | sed -e "s/Title: //g"`
+	TAGARTIST=`grep ^Artist: media2html_exiftool | sed -e "s/Artist: //g"`
+	TAGALBUM=`grep ^Album: media2html_exiftool | sed -e "s/Album: //g"`
+	TAGCOMMENT=`grep ^Comment: media2html_exiftool | sed -e "s/Comment: //g"`
+	TAGTRACKNUMBER=`grep ^TrackNumber: media2html_exiftool | sed -e "s/TrackNumber: //g"`
+	TAGGENRE=`grep ^Genre: media2html_exiftool | sed -e "s/Genre: //g"`
+	TAGDURATION=`grep ^Duration: media2html_exiftool | sed -e "s/Duration: //g"`
+	TAGDATE=`grep -e ^Date: media2html_exiftool | sed -e "s/Date: //g"`
+	TAGVENDOR=`grep ^Vendor: media2html_exiftool | sed -e "s/Vendor: //g"`
+	TAGFILETYPE=`grep ^FileType: media2html_exiftool | sed -e "s/FileType: //g"`
+	TAGMIMETYPE=`grep ^MIMEType: media2html_exiftool | sed -e "s/MIMEType: //g"`
+	TAGFILESIZE=`grep ^FileSize: media2html_exiftool | sed -e "s/FileSize: //g"`
+	TAGAUDIOCHANNELS=`grep ^AudioChannels: media2html_exiftool | sed -e "s/AudioChannels: //g"`
+	TAGSAMPLERATE=`grep ^SampleRate: media2html_exiftool | sed -e "s/SampleRate: //g"`
+	TAGAUDIOBITRATE=`grep ^AudioBitrate: media2html_exiftool | sed -e "s/AudioBitrate: //g"`
+	TAGCHANNELMODE=`grep ^ChannelMode: media2html_exiftool | sed -e "s/ChannelMode: //g"`
+	TAGENCODER=`grep ^Encoder: media2html_exiftool | sed -e "s/Encoder: //g"`
+	TAGIMAGEWIDTH=`grep ^ImageWidth: media2html_exiftool | sed -e "s/ImageWidth: //g"`
+	TAGIMAGEHEIGHT=`grep ^ImageHeight: media2html_exiftool | sed -e "s/ImageHeight: //g"`
+	TAGTRACK=`grep ^Track: media2html_exiftool | sed -e "s/Track: //g"`
+	TAGNOMINALBITRATE=`grep ^NominalBitrate: media2html_exiftool | sed -e "s/NominalBitrate: //g"`
+	TAGFRAMERATE=`grep ^FrameRate: media2html_exiftool | sed -e "s/FrameRate: //g"`
+	TAGVIDEOFRAMERATE=`grep ^VideoFrameRate: media2html_exiftool | sed -e "s/VideoFrameRate: //g"`
+	TAGCODECID=`grep ^CodecID: media2html_exiftool | sed -e "s/CodecID: //g"`
+	TAGYEAR=`grep -e ^Year: media2html_exiftool | sed -e "s/Year: //g"`
+
+	\rm media2html_exiftool
+
+	TAGDURATIONISO="PTnHnMnS"
+	tmpduration=$(echo ${TAGDURATION} | tr ":" "\n")
+	for x in $tmpduration
+	do
+	    TAGDURATIONISO=$(echo ${TAGDURATIONISO} | sed "s/n/${x}/")
+	done
+
+	if [ -s "${1}.picture" ]; then
+	    PICEXT=`${EXIFTOOL} -s3 -filetype "${1}.picture"  2> /dev/null`
+	    \mv "${1}.picture" "${1}.${M2HIMAGE}.${PICEXT}"
+	    filenameurl="${2//\ /%%20}"
+	    filenameurl="${filenameurl//&/%%26}"
+	    TAGIMAGE="${filenameurl}.${M2HIMAGE}.${PICEXT}"
+	else
+	    \rm "${1}.picture"
+	fi
+    
+    fi
+
+    if [ "${TAGTITLE}" = "" ]; then
+	TAGTITLE="${2}"	
+    else
+	KEYWORDS="${KEYWORDS}, ${TAGARTIST}, ${TAGTITLE}, ${TAGALBUM}"
+    fi
+
+}
+
+
+
+#######################################################################
+# Arg $1: file name
+# Arg $2: file name as title
+# Arg $3: file extension
+# arg $4: file name url
+#######################################################################
+createThumbnail() {
+
+    TAGTHUMB="${4}"
+
+    if [ ! "${CONVERT}" = "" ]; then
+	${CONVERT} "${1}" -strip -resize 256x512 "${1}.${M2HIMAGE}.${3}"
+	filenameurl="${2//\ /%%20}"
+	filenameurl="${filenameurl//&/%%26}"
+	TAGTHUMB="${filenameurl}.${M2HIMAGE}.${3}"
+    fi
+
+}
+
+
+#######################################################################
+# Arg $1: file name
+# Arg $2: file name url
+# Arg $3: thumb url
+# Arg $4: current dir url
+#######################################################################
+adddirectorythumb() {
+
+    if [ ! "${3}" = "" ]; then
+	if [ "${CLASSDIRECTORYTHUMB}" = "" ]; then 
+	    CLASSDIRECTORYTHUMB="<div class=\"thumbdivlarge\"><a href=\"${4}/${OUTPUTNAME}?file=${2}\"><img class=\"thumbimglarge\" src=\"${4}/${3}\" alt=\"${1}\" /></a></div>\n"
+	else
+	    CLASSDIRECTORYTHUMB="${CLASSDIRECTORYTHUMB}<div class=\"thumbdiv\"><a href=\"${4}/${OUTPUTNAME}?file=${2}\"><img class=\"thumbimg\" src=\"${4}/${3}\" alt=\"${1}\" /></a></div>\n"
+	fi
+    fi
+}
+
+
+
+
+#######################################################################
+# Arg $1: Path deepness ("../../")
+# Arg $2: Path name with root directory
+# Arg $3: Maximum depth
+# Arg $4: Path name without root directory
+#######################################################################
+processDirectory() {
+
+
+ ##############
+ # FILE LIST
+ ##############
+
+ find . -maxdepth 1 -not \( -name 'media2html*' \) -print0 | sort --zero-terminated > filelist
+
+ touch zipfilelist
+
+
+ ##############
+ # RECURSIVITY
+ ##############
+
+ localdepth=$((${3} - 1))
+
+ if [[ ${localdepth} -ne 0 ]];
+ then
+ while read -r -d $'\0' entry;
+ do
+
+  if [ ! -e "${entry}" ]; then
+      echoerr "warning: File (${entry}) does not exist\n"
+  elif [ -L "${entry}" ]; then
+      true
+  elif [ -d "${entry}" ]; then
+      if [ "${entry}" = "." ]; then
+	  true
+      else
+       dirname=${entry##*/}
+       pushd . > /dev/null
+       cd "${entry}"
+       processDirectory "../$1" "${2}/${dirname}" ${localdepth} "${4}/${dirname}"
+       popd > /dev/null
+      fi
+  fi
+
+ done < filelist
+ fi
+
+
+ ##############
+ # INIT
+ ##############
+
+ XSPFPLAYLIST=""
+ PLAYERPLAYLIST=""
+ CLASSDIRECTORY=""
+ CLASSIMAGEFILE=""
+ CLASSAUDIOFILE=""
+ CLASSVIDEOFILE=""
+ CLASSMISCFILE=""
+ CLASSDIRECTORYTHUMB=""
+ CLASSHIGHLIGHT=""
+ KEYWORDS="media2html"
+
+ numdir=0
+ numimage=0
+ numaudio=0
+ numvideo=0
+ numbutmp3=0
+ nummedia=0
+ nummisc=0
+
+
+ # Current directory without full path
+ currentdir="${PWD##*/}"
+ currentdirurl="${currentdir//\ /%%20}"
+ currentdirurl="${currentdirurl//&/%%26}"
+
+
+ ##############
+ # SWITCH FILE
+ ##############
+
+ while read -r -d $'\0' entry;
+ do
+  if [ ! -e "${entry}" ]; then
+      echoerr "warning: File (${entry}) does not exist\n"
+  elif [ -L "${entry}" ]; then
+      true
+  elif [ -d "${entry}" ]; then
+      if [ "${entry}" = "." ]; then
+	  true
+      else
+          dirname="${entry##*/}"
+	  dirurl="${dirname//\ /%20}"
+	  dirurl="${dirurl//&/%26}"
+
+	  dirthumb=""
+	  if [ -f "${dirname}/${dirname}.media2html_thumbnails" ]; then
+	      dirthumb=`cat "${dirname}/${dirname}.media2html_thumbnails"`
+	      \rm -- "${dirname}/${dirname}.media2html_thumbnails"
+              CLASSDIRECTORY="${CLASSDIRECTORY}   <div class=\"directory\"><div class=\"filetaghover\"><a href=\"${dirurl}/${OUTPUTNAME}\"><img class=\"imgicon\" src=\"${1}media2htmldata/styles/${STYLE}/folder.png\" alt=\"Go to folder ${dirname}\" /></a></div><div class=\"filetag\">${dirthumb}</div><div class=\"directoryname\">${dirname}</div></div>"
+	  else
+              CLASSDIRECTORY="${CLASSDIRECTORY}   <div class=\"directory\"><a href=\"${dirurl}/${OUTPUTNAME}\"><img class=\"imgicon\" src=\"${1}media2htmldata/styles/${STYLE}/folder.png\" alt=\"Go to folder ${dirname}\" /></a><div class=\"directoryname\">${dirname}</div></div>"
+	  fi
+	  numdir=$(($numdir + 1))
+      fi
+  elif [ -f "${entry}" ]; then
+      filename=${entry##*/}
+      filenameurl="${filename//\ /%%20}"
+      filenameurl="${filenameurl//&/%%26}"
+      fileext=${entry##*.}
+      filestat=$(du -h "${entry}" | cut -f1)
+
+
+      ###################
+      # Building playlist
+      ###################
+
+      mediatype=""
+
+      case ${fileext} in
+	  mp3|MP3)
+	      mediatype="mp3"
+	      extractTags "${entry}" "${filename}"
+	      if [ "${EXIFTOOL}" = "" ]; then
+	          # This is a fallback for id3 tag v1
+		  tag=$(tail -c128 "$entry" | tr '\0' ' ')
+		  id3=$(head -c10 "$entry" | tr '\0' ' ')
+		  TAGTITLE=`echo "${tag:3:30}" | sed 's/^ *//g'`
+		  TAGARTIST=`echo "${tag:33:30}" | sed 's/^ *//g'`
+		  TAGALBUM=`echo "${tag:63:30}" | sed 's/^ *//g'`
+                  # Correcting some display issues with id3tag v1
+		  if [ "${TAGTITLE}" = "" -o "${TAGTITLE}" = "UUUUUUUUUUUUUUUUUUUUUUUUUUUUUU" ]; then
+		      TAGTITLE="${filename}"
+		      TAGARTIST=""
+		      TAGALBUM=""
+		  fi
+	      fi;;
+	  ogg|OGG|oga|OGG)
+	      mediatype="oga"
+	      extractTags "${entry}" "${filename}"
+	      numbutmp3=$(($numbutmp3 + 1));;
+	  m4v|M4V|mp4|MP4)
+	      mediatype="m4v"
+	      extractTags "${entry}" "${filename}"
+	      numvideo=$(($numvideo + 1));;
+	  m4a|M4A)
+	      mediatype="m4a"
+	      extractTags "${entry}" "${filename}"
+	      numbutmp3=$(($numbutmp3 + 1));;
+	  webma|WEBMA)
+	      mediatype="webma"
+	      extractTags "${entry}" "${filename}"
+	      numbutmp3=$(($numbutmp3 + 1));;
+	  webmv|WEBMV|webm|WEBM)
+	      mediatype="webmv"
+	      extractTags "${entry}" "${filename}"
+	      numvideo=$(($numvideo + 1));;
+	  ogm|OGM|ogv|OGV)
+	      mediatype="ogv"
+	      extractTags "${entry}" "${filename}"
+	      numvideo=$(($numvideo + 1));;
+	  fla|FLA)
+	      mediatype="fla"
+	      extractTags "${entry}" "${filename}"
+	      numbutmp3=$(($numbutmp3 + 1));;
+	  flv|FLV)
+	      mediatype="flv"
+	      extractTags "${entry}" "${filename}"
+	      numvideo=$(($numvideo + 1));;
+	  aif|AIF|aiff|AIFF|wav|WAV)
+	      mediatype="wav"
+	      extractTags "${entry}" "${filename}"
+	      numbutmp3=$(($numbutmp3 + 1));;
+	  jpg|jpeg|JPG|JPEG|png|PNG|gif|GIF|bmp|BMP)
+	      if [[ ! "${filename}" = *".${M2HIMAGE}."* ]]; then
+		  extractTags "${entry}" "${filename}"
+		  createThumbnail "${entry}" "${filename}" "${fileext}" "${filenameurl}"
+	      fi;;
+	  *) true
+      esac
+
+      if [ ! "${mediatype}" = "" ]; then
+	  PLAYERPLAYLIST="${PLAYERPLAYLIST}{\n free:true,\n artist:\"${TAGARTIST}\",\n title:\"${TAGTITLE}\",\n duration:\"${TAGDURATION}\",\n ${mediatype}:\"$filenameurl\",\n cover:\"${TAGIMAGE}\",\n rating:4.5\n},\n"
+      fi
+
+      if [ "${TAGFILESIZE}" == "" ]; then
+	  TAGFILESIZE=${filestat}
+      fi
+
+
+      #####################
+      # Building file lists
+      #####################
+
+      case ${fileext} in
+
+	  jpg|jpeg|JPG|JPEG|png|PNG|gif|GIF|bmp|BMP)
+	      if [[ ! "${filename}" = *".${M2HIMAGE}."* ]]; then
+		  CLASSIMAGEFILE="${CLASSIMAGEFILE}   <div class=\"imagefile\"><div class=\"filetaghover\"><a href=\"${filenameurl}\"><img class=\"imgusr\" src=\"${TAGTHUMB}\" alt=\"${filename}\" /></a></div><div class=\"filetag\"><div class=\"filetagleft\"><a href=\"${filenameurl}\"><img class=\"imgusrpreview\" src=\"${TAGTHUMB}\" alt=\"${filename}\" /></a></div><div class=\"filetagright\"><table><tr><td class=\"tdleft\"><i>File</i></td><td><a itemprop=\"url\" href=\"${filenameurl}\">${filename}</a></td></tr><tr><td><i>Type</i></td><td>${TAGFILETYPE}</td></tr><tr><td><i>MIME</i></td><td>${TAGMIMETYPE}</td></tr><tr><td><i>Size</i></td><td>${TAGFILESIZE}</td></tr><tr><td class=\"tdseparator\"></td><td class=\"tdseparator\"></td></tr><tr><td><i>Width</i></td><td>${TAGIMAGEWIDTH} px</td></tr><tr><td><i>Height</i></td><td>${TAGIMAGEHEIGHT} px</td></tr></table></div></div><div class=\"filename\">${filename}</div></div>\n"
+		  adddirectorythumb "${filename}" "${filenameurl}" "${TAGTHUMB}" "${currentdirurl}"
+		  printf "${entry}\n" >> zipfilelist
+		  numimage=$(($numimage + 1))
+	      fi;;
+
+	  mp3|MP3|ogg|OGG|m4a|M4A|webma|WEBMA|oga|OGA|wav|WAV|fla|FLA|aif|AIF|aiff|AIFF)
+	      CLASSAUDIOFILE="${CLASSAUDIOFILE}   <div class=\"audiofile\" itemprop=\"track\" itemscope itemtype=\"http://schema.org/MusicRecording\"><div class=\"filetaghover\" itemscope itemtype=\"http://schema.org/AudioObject\"><meta itemprop=\"encodingFormat\" content=\"${fileext}\" /><meta itemprop=\"contentURL\" content=\"${filenameurl}\" /><a itemprop=\"url\" href=\"${OUTPUTNAME}?file=${filenameurl}\"><img class=\"imgicon\" src=\"${1}media2htmldata/styles/${STYLE}/audio.png\" alt=\"${filename}\" /></a></div><div class=\"filetag\"><div class=\"filetagleft\">"
+	      if [ "${TAGIMAGE}" == "" ]; then
+		  CLASSAUDIOFILE="${CLASSAUDIOFILE}<a href=\"${1}media2htmldata/styles/${STYLE}/defaultcover.jpg\" itemprop=\"image\"><img class=\"imgusrpreview\" src=\"${1}media2htmldata/styles/${STYLE}/defaultcover.jpg\" alt=\"Default cover.\" /></a>"
+	      else
+		  CLASSAUDIOFILE="${CLASSAUDIOFILE}<a href=\"${TAGIMAGE}\" itemprop=\"image\"><img class=\"imgusrpreview\" src=\"${TAGIMAGE}\" alt=\"${TAGIMAGE}\" /></a>"
+	      fi
+	      CLASSAUDIOFILE="${CLASSAUDIOFILE}</div><div class=\"filetagright\"><table><tr><td class=\"tdleft\"><i>File</i></td><td><a itemprop=\"url\" href=\"${filenameurl}\">${filename}</a></td></tr><tr><td><i>Type</i></td><td>${TAGFILETYPE}</td></tr><tr><td><i>MIME</i></td><td>${TAGMIMETYPE}</td></tr><tr><td><i>Size</i></td><td>${TAGFILESIZE}</td></tr><tr><td class=\"tdseparator\"></td><td class=\"tdseparator\"></td></tr><tr><td><i>Title</i></td><td itemprop=\"name\">${TAGTITLE}</td></tr><tr><td><i>Artist</i></td><td itemprop=\"byArtist\">${TAGARTIST}</td></tr><tr><td><i>Album</i></td><td itemprop=\"inAlbum\">${TAGALBUM}</td></tr><tr><td class=\"tdseparator\"></td><td class=\"tdseparator\"></td></tr><tr><td><i>Date</i></td><td itemprop=\"dateCreated\">${TAGDATE} ${TAGYEAR}</td></tr><tr><td><i>Duration</i></td><td>${TAGDURATION}<meta itemprop=\"duration\" content=\"${TAGDURATIONISO}\" /></td></tr><tr><td><i>Number</i></td><td>${TAGTRACKNUMBER} ${TAGTRACK}</td></tr><tr><td><i>Genre</i></td><td itemprop=\"genre\">${TAGGENRE}</td></tr><tr><td class=\"tdseparator\"></td><td class=\"tdseparator\"></td></tr><tr><td><i>Encoder</i></td><td>${TAGENCODER} ${TAGVENDOR}</td></tr><tr><td><i>Bitrate</i></td><td>${TAGAUDIOBITRATE} ${TAGNOMINALBITRATE}</td></tr><tr><td><i>Rate</i></td><td>${TAGSAMPLERATE} Hz</td></tr><tr><td><i>Channels</i></td><td>${TAGAUDIOCHANNELS} ${TAGCHANNELMODE}</td></tr><tr><td><i>Comment</i></td><td itemprop=\"text\">${TAGCOMMENT}</td></tr></table></div></div><div class=\"filename\"><a href=\"${OUTPUTNAME}?file=${filenameurl}\">${filename}</a></div></div>\n"
+	      xspflocationpath="${SITEURL}"
+	      xspflocation="${filename}"
+	      if [ ! "${SITEURL}" = "" -o "${GLOBALXSPF}" = "1" ]; then
+		  locationpath="${4}"
+		  xspflocationpath="${xspflocationpath}${locationpath}/"
+		  xspflocation="${xspflocationpath}${filename}"
+		  if [[ "${SITEURL}" = "http"* ]]; then
+		      xspflocationpath="${xspflocationpath//\ /%%20}"
+		      xspflocationpath="${xspflocationpath//&/%%26}"
+		      xspflocation="${xspflocationpath}${filenameurl}"
+		  fi
+	      fi
+	      if [ "${xspflocation:0:1}" = "/" ]; then
+		  xspflocation=${xspflocation:1:${#xspflocation}-1}
+	      fi
+	      if [ "${xspflocationpath:0:1}" = "/" ]; then
+		  xspflocationpath=${xspflocationpath:1:${#xspflocationpath}-1}
+	      fi
+	      xspfartist="${TAGARTIST//&/&amp;}"
+	      xspftitle="${TAGTITLE//&/&amp;}"
+	      xspfalbum="${TAGALBUM//&/&amp;}"
+	      xspfcomment="${TAGCOMMENT//&/&amp;}"
+	      xspfimage=""
+	      if [ ! "${TAGIMAGE}" = "" ]; then
+		  xspfimage="${xspflocationpath}${TAGIMAGE}"
+	      fi
+	      xspftrack="<track>\n <location>${xspflocation}</location>\n <creator>${xspfartist}</creator>\n <title>${xspftitle}</title>\n <album>${xspfalbum}</album>\n <image>${xspfimage}</image>\n <annotation>${xspfcomment}</annotation>\n <info>${xspflocationpath}</info>\n</track>\n"
+	      XSPFPLAYLIST="${XSPFPLAYLIST}${xspftrack}"
+	      GLOBALXSPFPLAYLIST="${GLOBALXSPFPLAYLIST}${xspftrack}"
+	      adddirectorythumb "${filename}" "${filenameurl}" "${TAGIMAGE}" "${currentdirurl}"
+
+	      CLASSHIGHLIGHT="${CLASSHIGHLIGHT} <div class=\"m2hhighlight\" id=\"${filenameurl}\" draggable=\"true\" ><div class=\"highclose\" onClick=\"window.location.replace('${OUTPUTNAME}');\"><img class=\"imgclose\" src=\"${1}media2htmldata/styles/${STYLE}/close.png\" alt=\"Click to close this frame.\"></div><div class=\"filetagleft\">"
+	      if [ "${TAGIMAGE}" == "" ]; then
+		  CLASSHIGHLIGHT="${CLASSHIGHLIGHT}<a href=\"${1}media2htmldata/styles/${STYLE}/defaultcover.jpg\"><img class=\"imgusrpreview\" src=\"${1}media2htmldata/styles/${STYLE}/defaultcover.jpg\" alt=\"Default cover.\" /></a>"
+	      else
+		  CLASSHIGHLIGHT="${CLASSHIGHLIGHT}<a href=\"${TAGIMAGE}\"><img class=\"imgusrpreview\" src=\"${TAGIMAGE}\" alt=\"${TAGIMAGE}\" /></a>"
+	      fi
+	      CLASSHIGHLIGHT="${CLASSHIGHLIGHT} </div><div class=\"filetagright\" ><table><tr><td class=\"hightitle\">${TAGTITLE}</td></tr><tr><td>${TAGARTIST}</td></tr><tr><td>"
+	      
+	      if [ "${fileext}" == "mp3" ]; then
+		  CLASSHIGHLIGHT="${CLASSHIGHLIGHT} <object type=\"application/x-shockwave-flash\" data=\"${1}media2htmldata/players/dewplayerclassic/dewplayer.swf\" width=\"200\" height=\"20\" id=\"dewplayerclassic${filenameurl}\" name=\"dewplayerclassic${filenameurl}\"><param name=\"bgcolor\" value=\"#222222\" /><param name=\"movie\" value=\"${1}media2htmldata/players/dewplayerclassic/dewplayer.swf?mp3=${filenameurl}\" /><param name=\"flashvars\" value=\"mp3=${filenameurl}\" /></object>"
+	      else
+		  CLASSHIGHLIGHT="${CLASSHIGHLIGHT} <audio controls>  <source src=\"${filenameurl}\" type=\"audio/${fileext}\"></audio>"
+	      fi
+	      CLASSHIGHLIGHT="${CLASSHIGHLIGHT} </td></tr><tr><td>${TAGALBUM}</td></tr><tr><td>${TAGDATE} ${TAGYEAR}</td></tr><tr><td>${TAGDURATION}</td></tr><tr><td>${TAGGENRE}</td></tr><tr><td>${TAGCOMMENT}</td></tr><tr><td>${TAGFILETYPE} ${TAGAUDIOBITRATE} ${TAGNOMINALBITRATE} ${TAGSAMPLERATE} Hz ${TAGAUDIOCHANNELS} ${TAGCHANNELMODE}</td></tr><tr><td>${TAGENCODER} ${TAGVENDOR}</td></tr><tr><td>[<a href=\"${filenameurl}\">Download</a>] ${TAGFILESIZE}</td></tr>"
+	      if [ -f "${filename}.m2htext" ]; then
+		  filebody=`cat ${filename}.m2htext`
+		  CLASSHIGHLIGHT="${CLASSHIGHLIGHT}<tr><td><div class=\"m2htext\"><pre>${filebody}</pre></div></td></tr><tr><td></td></tr><tr><td>[<a href=\"${filename}.m2htext\">Description</a>]</td></tr>"
+	      fi
+	      CLASSHIGHLIGHT="${CLASSHIGHLIGHT} </table> </div></div>\n"
+
+
+
+	      printf "${entry}\n" >> zipfilelist
+	      numaudio=$(($numaudio + 1));;
+
+	  m4v|M4V|webmv|WEBMV|webm|WEBM|ogv|OGV|flv|FLV|avi|AVI|mp4|MP4|mpg|MPG|mpeg|MPEG|divx|DIVX|xvid|XVID|ogm|OGM)
+	      CLASSVIDEOFILE="${CLASSVIDEOFILE}   <div class=\"videofile\"><div class=\"filetaghover\"><a href=\"${filenameurl}\"><img class=\"imgicon\" src=\"${1}media2htmldata/styles/${STYLE}/video.png\" alt=\"${filename}\" /></a></div><div class=\"filetag\"><div class=\"filetagleft\"></div><div class=\"filetagright\"><table><tr><td class=\"tdleft\"><i>File</i></td><td><a itemprop=\"url\" href=\"${filenameurl}\">${filename}</a></td></tr><tr><td><i>Type</i></td><td>${TAGFILETYPE}</td></tr><tr><td><i>MIME</i></td><td>${TAGMIMETYPE}</td></tr><tr><td><i>Size</i></td><td>${TAGFILESIZE}</td></tr><tr><td class=\"tdseparator\"></td><td class=\"tdseparator\"></td></tr><tr><td><i>Width</i></td><td>${TAGIMAGEWIDTH} px</td></tr><tr><td><i>Height</i></td><td>${TAGIMAGEHEIGHT} px</td></tr><tr><td><i>Duration</i></td><td>${TAGDURATION}</td></tr><tr><td><i>Rate</i></td><td>${TAGFRAMERATE} ${TAGVIDEOFRAMERATE} fps</td></tr><tr><td class=\"tdseparator\"></td><td class=\"tdseparator\"></td></tr><tr><td><i>Encoder</i></td><td>${TAGENCODER} ${TAGVENDOR} ${TAGCODECID}</td></tr><tr><td><i>Bitrate</i></td><td>${TAGAUDIOBITRATE} ${TAGNOMINALBITRATE}</td></tr><tr><td><i>Rate</i></td><td>${TAGSAMPLERATE} Hz</td></tr><tr><td><i>Channels</i></td><td>${TAGAUDIOCHANNELS} ${TAGCHANNELMODE}</td></tr></table></div></div><div class=\"filename\">${filename}</div></div>\n"
+	      printf "${entry}\n" >> zipfilelist
+	      numvideo=$(($numvideo + 1));;
+
+	  txt|nfo)
+	      filebody=`cat ${filename}`
+	      CLASSMISCFILE="${CLASSMISCFILE}   <div class=\"miscfile\"><div class=\"filetaghover\"><a href=\"${filenameurl}\"><img class=\"imgicon\" src=\"${1}media2htmldata/styles/${STYLE}/text.png\" alt=\"${filename}\" /></a></div><div class=\"filetag\"><div class=\"filetagcenter\"><pre>${filebody}</pre></div></div><div class=\"filename\">${filename}</div></div>\n"
+	      printf "${entry}\n" >> zipfilelist
+	      nummisc=$(($nummisc + 1));;
+
+	  xspf|m3u)
+	      if [ ! "${filename}" = "playlist.xspf" ]; then
+		  CLASSMISCFILE="${CLASSMISCFILE}   <div class=\"miscfile\"><a href=\"${filenameurl}\"><img class=\"imgicon\" src=\"${1}media2htmldata/styles/${STYLE}/playlist.png\" title=\"${filestat}\" alt=\"${filename}\" /></a><div class=\"filename\">${filename}</div></div>\n"
+		  nummisc=$(($nummisc + 1))
+	      fi;;
+
+	  zip|gz|7z|rar)
+	      if [ ! "${filename}" = "${currentdir}.zip" ]; then
+	      	 CLASSMISCFILE="${CLASSMISCFILE}   <div class=\"miscfile\"><a href=\"${filenameurl}\"><img class=\"imgicon\" src=\"${1}media2htmldata/styles/${STYLE}/package.png\" title=\"${filestat}\" alt=\"${filename}\" /></a><div class=\"filename\">${filename}</div></div>\n"
+		  nummisc=$(($nummisc + 1))
+	      fi;;
+
+	  ${M2HLINK})
+	      dirname="${filenameurl//.${M2HLINK}/}"
+	      dirlink=`cat ${filename}`
+	      dirurl="${dirlink//\ /%20}"
+	      dirurl="${dirurl//&/%26}"
+              CLASSDIRECTORY="${CLASSDIRECTORY}   <div class=\"directory\"><a href=\"${dirurl}\"><img class=\"imgicon\" src=\"${1}media2htmldata/styles/${STYLE}/folderlink.png\" title=\"Go to folder ${dirlink}\" alt=\"Go to folder ${dirlink}\" /></a><div class=\"directoryname\">${dirname}</div></div>"
+	      numdir=$(($numdir + 1));;
+
+	  *) true
+      esac
+
+
+  fi
+ done < filelist
+ # Switch file
+
+
+ nummedia=$(($numaudio + $numvideo))
+
+
+
+ #############################
+ # OUTPUT Directory Thumbnails
+ #############################
+
+ if [ ! "${CLASSDIRECTORYTHUMB}" = "" ]; then
+     printf "${CLASSDIRECTORYTHUMB}" > "${currentdir}.media2html_thumbnails"
+ fi
+
+
+
+ ##############
+ # OUTPUT XSPF
+ ##############
+
+ if [[ ${GENERATEXSPF} -eq 1 ]]; then
+
+     xspftracklist=""
+
+     if [[ ${GLOBALXSPF} -eq 0 ]]; then
+	 if [[ ${numaudio} -ge 1 ]]; then
+	     xspftracklist=${XSPFPLAYLIST}
+	 fi
+     else
+	 if [ "${1}" = "" ]; then
+	     xspftracklist=${GLOBALXSPFPLAYLIST}
+	 fi
+     fi
+
+     if [ ! "${xspftracklist}" = ""  ]; then
+	 printf "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<playlist version=\"1\" xmlns=\"http://xspf.org/ns/0/\">\n<title>${currentdir}</title>\n<trackList>\n" > playlist.xspf
+	 printf "${xspftracklist}" >> playlist.xspf
+	 printf "</trackList>\n</playlist>\n" >> playlist.xspf     
+	 filestat=$(du -h "playlist.xspf" | cut -f1)
+	 CLASSMISCFILE="${CLASSMISCFILE}   <div class=\"miscfile\"><a href=\"playlist.xspf\"><img class=\"imgicon\" src=\"${1}media2htmldata/styles/${STYLE}/playlist.png\" title=\"${filestat}\" alt=\"${filename}\" /></a><div class=\"filename\">playlist.xspf</div></div>\n"
+	 printFileList "${4}" "playlist.xspf"
+     fi
+
+ fi
+ 
+
+
+ ##############
+ # ZIP FILES
+ ##############
+
+ if [[ ${ENABLEZIP} -eq 1 ]]; then
+  if [ -s zipfilelist ]; then
+     zip -j "${currentdir}.zip" -@ < zipfilelist
+     filestat=$(du -h "${currentdir}.zip" | cut -f1)
+     CLASSMISCFILE="${CLASSMISCFILE}   <div class=\"downloadfile\"><a href=\"${currentdirurl}.zip\"><img class=\"imgicon\" src=\"${1}media2htmldata/styles/${STYLE}/package.png\" title=\"${filestat}\" alt=\"${currentdir}.zip\" /></a><div class=\"filename\">Download all files (ZIP)</div></div>\n"
+     nummisc=$(($nummisc + 1))		  
+     printFileList "${4}" "${currentdir}.zip"
+  fi
+ fi
+
+
+
+
+ ##############
+ # OUTPUT HTML
+ ##############
+
+ if [[ ${GENERATEHTML} -eq 1 ]]; then
+
+     printf "<!DOCTYPE html>\n<html>\n <head>\n  <meta http-equiv=\"Content-Type\" content=\"text/html;charset=utf-8\" >\n  <title>$2</title>\n  <meta name=\"description\" content=\"${DESCRIPTION}\">\n  <meta name=\"keywords\" content=\"${KEYWORDS}\">\n  <link rel=\"stylesheet\" href=\"${1}media2htmldata/styles/${STYLE}/style.css\" type=\"text/css\" />\n" > ${OUTPUTNAME}
+ 
+     case ${PLAYER} in
+
+	 jplayer)
+	     printf "  <link type=\"text/css\" href=\"${1}media2htmldata/players/${PLAYER}/skins/jplayer.blue.monday.css\" rel=\"stylesheet\" />\n  <script type=\"text/javascript\" src=\"${1}media2htmldata/players/${PLAYER}/googleapis/jquery.min.js\"></script>\n  <script type=\"text/javascript\" src=\"${1}media2htmldata/players/${PLAYER}/googleapis/plusone.js\"></script>\n  <script type=\"text/javascript\" src=\"${1}media2htmldata/players/${PLAYER}/js/jquery.jplayer.min.js\"></script>\n  <script type=\"text/javascript\" src=\"${1}media2htmldata/players/${PLAYER}/js/jplayer.playlist.min.js\"></script>\n" >> ${OUTPUTNAME}
+	     printf "  <script type=\"text/javascript\">\n//<![CDATA[\n\$(document).ready(function(){\n new jPlayerPlaylist({\n jPlayer:\"#jquery_jplayer_1\",\n cssSelectorAncestor:\"#jp_container_1\"\n}, [\n" >> ${OUTPUTNAME}
+	     printf "${PLAYERPLAYLIST}" >> ${OUTPUTNAME}
+ # Filtering the supplied formats because of the issues with Firefox/mp3 and Safari/ogg
+	     if [[ ${numvideo} -ge 1 ]]; then
+		 printf "], {\n swfPath:\"${1}media2htmldata/players/${PLAYER}/Jplayer.swf\",\n solution:\"html,flash\",\n supplied:\"mp3,m4a,m4v,webma,webmv,oga,ogv,fla,flv,wav\",\n wmode:\"window\"\n });\n});\n//]]>\n</script>\n" >> ${OUTPUTNAME}
+	     else # audio only
+		 if [[ ${numbutmp3} -ge 1 ]]; then
+		     printf "], {\n swfPath:\"${1}media2htmldata/players/${PLAYER}/Jplayer.swf\",\n solution:\"html,flash\",\n supplied:\"mp3,m4a,webma,oga,fla,wav\",\n wmode:\"window\"\n });\n});\n//]]>\n</script>\n" >> ${OUTPUTNAME}
+		 else # mp3 only
+		     printf "], {\n swfPath:\"${1}media2htmldata/players/${PLAYER}/Jplayer.swf\",\n solution:\"html,flash\",\n supplied:\"mp3\",\n wmode:\"window\"\n });\n});\n//]]>\n</script>\n" >> ${OUTPUTNAME}
+		 fi
+	     fi;;
+
+	 codebasehero)
+
+	     printf "<link rel=\"stylesheet\" type=\"text/css\" href=\"${1}media2htmldata/players/${PLAYER}/css/style.css\">\n<script type=\"text/javascript\" src=\"${1}media2htmldata/players/${PLAYER}/js/jquery-1.6.1.min.js\"></script>\n<script type=\"text/javascript\" src=\"${1}media2htmldata/players/${PLAYER}/jquery-jplayer/jquery.jplayer.js\"></script>\n<script type=\"text/javascript\" src=\"${1}media2htmldata/players/${PLAYER}/ttw-music-player-min.js\"></script>\n<script type=\"text/javascript\">\n\$(document).ready(function(){\nvar description = '';\nvar myPlaylist = [\n" >> ${OUTPUTNAME}
+	     printf "${PLAYERPLAYLIST}" >> ${OUTPUTNAME}
+	     printf "];\n\$('#codebasehero').ttwMusicPlayer(myPlaylist, {\n autoPlay:false,\n description:description,\n swfPath:\"${1}media2htmldata/players/${PLAYER}/jquery-jplayer/Jplayer.swf\"\n}\n);\n});\n</script>\n">> ${OUTPUTNAME};;
+
+     esac
+
+
+ ##############
+ # Google Analytics
+ ##############
+ if [ ! "${GOOGLEANALYTICS}" = "" ]; then
+     stampGoogleAnalytics "${OUTPUTNAME}"
+ fi
+
+ ##############
+ # Google Search
+ ##############
+ if [ ! "${GOOGLESEARCH}" = "" ]; then
+     stampGoogleSearchScript "${OUTPUTNAME}"
+ fi
+
+ ##############
+ # URL Params
+ ##############
+ printf "<script type=\"text/javascript\">\nfunction getQueryVariable(variable)\n{\n       var query = window.location.search.substring(1);\n       var vars = query.split(\"&\");\n       for ( var i=0;i < vars.length;i++ ) {\n               var pair = vars[i].split(\"=\");\n               if(pair[0] == variable){return pair[1];}\n       }\n       return(false);\n}\n</script>\n" >> ${OUTPUTNAME}
+
+
+ linkdeep=${LINKITEMS//@DEEPNESS/${1}}
+ printf "</head>\n <body>\n <div class=\"pageheader\">\n  <div class=\"pagetitle\">${2}</div>\n  <div class=\"linkitems\">\n${linkdeep}  </div>\n </div>\n" >> ${OUTPUTNAME}
+
+
+ printf "  <div class=\"rightenclosure\">\n" >> ${OUTPUTNAME}
+
+ ##############
+ # Google Search
+ ##############
+ if [ ! "${GOOGLESEARCH}" = "" ]; then
+     stampGoogleSearch "${OUTPUTNAME}"
+ fi
+
+
+ printf "  <div class=\"directories\">\n" >> ${OUTPUTNAME}
+ if [ "${1}" = "" ]; then
+     backname=""
+ else
+     backname="${OUTPUTNAME}"
+ fi
+ printf "   <div class=\"directory\"><a href=\"../${backname}\"><img class=\"imgicon\" src=\"${1}media2htmldata/styles/${STYLE}/back.png\" title=\"Go to top folder\" alt=\"Go to top folder\" /></a></div>\n" >> ${OUTPUTNAME}
+ printf "%s" "${CLASSDIRECTORY}" >> ${OUTPUTNAME}
+ printf "  </div>\n" >> ${OUTPUTNAME}
+
+ printf "  <div class=\"images\">\n" >> ${OUTPUTNAME}
+ printf "${CLASSIMAGEFILE}" >> ${OUTPUTNAME}
+ printf "  </div>\n" >> ${OUTPUTNAME}
+
+ printf "  <div class=\"audio\" itemscope itemtype=\"http://schema.org/MusicPlaylist\">\n  <meta itemprop=\"name\" content=\"${2}\"/>\n  <meta itemprop=\"numTracks\" content=\"${numaudio}\"/>\n" >> ${OUTPUTNAME}
+ printf "${CLASSAUDIOFILE}" >> ${OUTPUTNAME}
+ printf "${CLASSVIDEOFILE}" >> ${OUTPUTNAME}
+ printf "  </div>\n" >> ${OUTPUTNAME}
+
+ printf "  <div class=\"miscs\">\n" >> ${OUTPUTNAME}
+ printf "${CLASSMISCFILE}" >> ${OUTPUTNAME}
+ printf "  </div>\n" >> ${OUTPUTNAME}
+
+ ##############
+ # STATUS
+ ##############
+
+ printf "  <div class=\"status\"><div class=\"statusname\">Status ${numdir} directories ${numaudio} audio ${numvideo} video ${numimage} image ${nummisc} misc files</div></div>"  >> ${OUTPUTNAME}
+
+
+ ##############
+ # rightenclosure
+ ##############
+
+ printf "  </div>\n" >> ${OUTPUTNAME}
+
+
+ ##############
+ # PLAYER
+ ##############
+
+ if [[ ${nummedia} -ge 1 ]];
+ then
+     case ${PLAYER} in
+	 jplayer)
+	     stamp_jplayer "${OUTPUTNAME}";;
+	 codebasehero)
+	     stamp_codebasehero "${OUTPUTNAME}";;
+	 dewplayer)
+	     stamp_dewplayer "${OUTPUTNAME}" "${1}";;
+	 dewplayervinyl)
+	     stamp_dewplayervinyl "${OUTPUTNAME}" "${1}";;
+	 xspfplayer)
+	     stamp_xspfplayer "${OUTPUTNAME}" "${1}";;
+     esac
+ fi
+
+
+ ##############
+ # Facebook
+ ##############
+
+ if [ ! "${FACEBOOKLIKEBOX}" = "" ]; then
+     printf "<div class=\"facebooklikebox\">\n" >> ${OUTPUTNAME}
+     printf "<iframe src=\"http://www.facebook.com/plugins/likebox.php?href=${FACEBOOKLIKEBOX}&amp;width=560&amp;height=395&amp;show_faces=false&amp;colorscheme=light&amp;stream=true&amp;border_color&amp;header=false&amp;force_wall=true\" style=\"border:none; overflow:hidden; width:572px; height:400px;\"></iframe>" >> ${OUTPUTNAME}
+     printf "</div>\n" >> ${OUTPUTNAME}
+ fi
+
+ ##############
+ # Soundcloud
+ ##############
+
+if [ ! "${SOUNDCLOUD}" = "" ]; then
+    printf "<div class=\"soundcloudwidget\">\n" >> ${OUTPUTNAME}
+    printf "<iframe width=\"560\" height=\"450\" scrolling=\"no\" frameborder=\"no\" src=\"https://w.soundcloud.com/player/?url=http%%3A%%2F%%2Fapi.soundcloud.com%%2Fusers%%2F${SOUNDCLOUD}\"></iframe>" >> ${OUTPUTNAME}
+    printf "</div>\n" >> ${OUTPUTNAME}
+fi
+
+
+
+ ##############
+ # Highlights
+ ##############
+ printf "<div class=\"m2hhighlights\">\n${CLASSHIGHLIGHT}</div>\n" >> ${OUTPUTNAME}
+
+
+
+ ##############
+ # Footer
+ ##############
+
+ printf "  <div class=\"footer\">\n  <!-- hhmts start -->Generated by <a href=\"https://sites.google.com/site/media2html\" title=\"${DESCRIPTION}\" target=\"_blank\">media2html</a> ${SCRIPTVERSION} using the ${PLAYER} player and the ${STYLE} template. Last modified: " >> ${OUTPUTNAME}
+ date | tr -d '\n' >> ${OUTPUTNAME}
+ printf ". W3C <a href=\"http://validator.w3.org/check/referer\">HTML5</a> <a href=\"http://jigsaw.w3.org/css-validator/check/referer\">CSS3</a>.<!-- hhmts end -->\n  </div>\n" >> ${OUTPUTNAME}
+
+ ##############
+ # draggable
+ ##############
+
+ printf "<script type=\"text/javascript\">\nvar file = getQueryVariable(\"file\");\nif (file != \"\") {\n document.getElementById(file).style.display = 'block';\n function drag_start(event) {\n    var style = window.getComputedStyle(event.target, null);\n    event.dataTransfer.setData(\"text/plain\",\n    (parseInt(style.getPropertyValue(\"left\"),10) - event.clientX) + ',' + (parseInt(style.getPropertyValue(\"top\"),10) - event.clientY));\n } \n function drag_over(event) { \n    event.preventDefault(); \n    return false; \n } \n function drop(event) { \n    var offset = event.dataTransfer.getData(\"text/plain\").split(',');\n    var dm = document.getElementById(file);\n    dm.style.left = (event.clientX + parseInt(offset[0],10)) + 'px';\n    dm.style.top = (event.clientY + parseInt(offset[1],10)) + 'px';\n    event.preventDefault();\n    return false;\n } \n var dm = document.getElementById(file); \n dm.addEventListener('dragstart',drag_start,false); \n document.body.addEventListener('dragover',drag_over,false); \n document.body.addEventListener('drop',drop,false);\n}\n</script>\n" >> ${OUTPUTNAME}
+
+
+ ##############
+ # /HTML
+ ##############
+
+ printf " </body>\n</html>\n" >> ${OUTPUTNAME}
+
+
+
+
+ ##############
+ # PRINT LIST
+ ##############
+
+ printFileList "${4}" "${OUTPUTNAME}"
+
+
+ fi # if generate html
+
+
+
+ ##############
+ # CLEANING
+ ##############
+
+
+ \rm filelist
+ \rm zipfilelist
+
+
+}
+#######################################################################
+# End of processDirectory
+#######################################################################
+
+
+
+
+
+
+
+
+
+#######################################################################
+# This is the entry point of the script
+#######################################################################
+
+
+# Script path
+pushd `dirname $0` > /dev/null
+SCRIPTPATH=`\pwd`
+popd > /dev/null
+
+# Processing parameters
+while [ $# -gt 0 ]
+do
+ case "${1}" in
+     (--prefix) shift; PREFIX=${1};;
+     (--site-url) shift; SITEURL=${1};;
+     (--player) shift; PLAYER=${1};
+	 if [ ! -d "${SCRIPTPATH}/media2htmldata/players/${PLAYER}" ]; then echo "Player ${PLAYER} does not exist."; exit ${EXIT_FAILED}; fi;
+	 if [ "${PLAYER}" = "dewplayer" -o "${PLAYER}" = "dewplayervinyl" -o "${PLAYER}" = "xspfplayer" ]; then GENERATEXSPF=1; GLOBALXSPF=0; fi;
+	 if [ "${PLAYER}" = "dewplayerclassic" ]; then echo "Player ${PLAYER} does not support playlists."; exit ${EXIT_FAILED}; fi;;
+     (--style) shift; STYLE=${1};
+	 if [ ! -d "${SCRIPTPATH}/media2htmldata/styles/${STYLE}" ]; then echo "Style ${STYLE} does not exist."; exit ${EXIT_FAILED}; fi;;
+     (--output) shift; OUTPUTNAME="${1}";;
+     (--google-analytics) shift; GOOGLEANALYTICS=${1};;
+     (--google-search) shift; GOOGLESEARCH=${1};;
+     (--facebook) shift; FACEBOOKLIKEBOX=${1};;
+     (--soundcloud) shift; SOUNDCLOUD=${1};;
+     (--link) shift; addLinkItem ${1};;
+     (--exiftool) shift; EXIFTOOL=${1};;
+     (--convert) shift; CONVERT=${1};;
+     (--zip) ENABLEZIP=1;;
+     (--xspf) GENERATEXSPF=1;;
+     (--xspf-global) GENERATEXSPF=1; GLOBALXSPF=1;;
+     (--no-player) PLAYLISTPLAYER=0;;
+     (--no-html) GENERATEHTML=0;;
+     (--print) PRINTLIST=1;;
+     (--print0) PRINTLIST0=1; PRINTLIST0OPT="-print0";;
+     (--regexp) shift; REGEXPSTYLE="${REGEXPSTYLE} -e ${1}";;
+     (--maxdepth) shift;
+	 if [[ ${1} =~ ^-?[0-9]+$ ]]; then MAXDEPTH=${1}; else echo "${1} is not an integer."; exit ${EXIT_FAILED}; fi;;
+     (--version) printf "${SCRIPTVERSION}\n"; exit ${EXIT_SUCCESS};;
+     (--help) printhelp; exit ${EXIT_SUCCESS};;
+     (*) echo "Error: Unrecognized option ${1}"; printhelp; exit ${EXIT_FAILED};;
+ esac
+ shift
+done
+
+# Prefix path
+pushd "${PREFIX}" > /dev/null
+PREFIXPATH=`\pwd`
+popd > /dev/null
+
+# ExifTool path
+if [ "${EXIFTOOL}" = "" ]; then
+ EXIFTOOL=`which exiftool`
+else
+ if [ -f "${EXIFTOOL}/exiftool" ]; then
+   EXIFTOOL=${EXIFTOOL}/exiftool
+ else
+   EXIFTOOL=""
+ fi
+fi
+
+# Convert path
+if [ "${CONVERT}" = "" ]; then
+ CONVERT=`which convert`
+else
+ if [ -f "${CONVERT}/convert" ]; then
+   CONVERT=${CONVERT}/convert
+ else
+   CONVERT=""
+ fi
+fi
+
+# Playlist player
+if [ "${PLAYLISTPLAYER}" = "0" ]; then
+ PLAYER=""
+fi
+
+
+#######################################################################
+pushd . > /dev/null
+cd "${PREFIXPATH}"
+processDirectory "" "${PWD##*/}" ${MAXDEPTH} ""
+popd > /dev/null
+#######################################################################
+
+
+# If prefix is different from the source directory, we have to install
+# the shared files to the processed directory
+
+if [ "${PREFIXPATH}" != "${SCRIPTPATH}" -a "${GENERATEHTML}" = "1" ]; then
+    \mkdir -p -- "${PREFIXPATH}/media2htmldata/players/" "${PREFIXPATH}/media2htmldata/styles/"
+    \cp -R -- "${SCRIPTPATH}/media2htmldata/players/dewplayerclassic" "${PREFIXPATH}/media2htmldata/players/"
+    \cp -R -- "${SCRIPTPATH}/media2htmldata/players/${PLAYER}" "${PREFIXPATH}/media2htmldata/players/"
+    \cp -R -- "${SCRIPTPATH}/media2htmldata/styles/${STYLE}" "${PREFIXPATH}/media2htmldata/styles/"
+    if [ ! "${REGEXPSTYLE}" = "" ]; then
+	sed ${REGEXPSTYLE} -i "${PREFIXPATH}/media2htmldata/styles/${STYLE}/style.css"
+    fi
+fi
+
+if [ "${PRINTLIST}" = "1" -o "${PRINTLIST0}" = "1" ]; then
+    pushd . > /dev/null
+    cd "${PREFIXPATH}"
+    find "media2htmldata/" ${PRINTLIST0OPT}
+    popd > /dev/null
+fi
+
+exit ${EXIT_SUCCESS}

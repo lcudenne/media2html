@@ -1,0 +1,486 @@
+
+body{
+    background-image:url('background.png');
+}
+
+a:link, a:visited {text-decoration: none; color: #444444;}
+a:hover {text-decoration: none; color: #AAAAAA;}
+
+.pageheader{
+    margin:12px;
+    height:44px;
+    border:1px solid;
+    border-bottom-left-radius:8px;
+    border-top-right-radius:8px;
+    background-color: rgba(255, 255, 255, 0.9);
+    box-shadow: 10px 10px 5px rgba(0,0,0,0.5);
+}
+
+.pagetitle{
+    float:left;
+    margin:4px;
+    font-family:"Verdana";
+    font-size:24px;
+    color: #666666;
+    text-shadow: 5px 5px 5px rgba(0,0,0,0.5);
+}
+
+.linkitems{
+    float:right;
+}
+
+.linkitem{
+    float:right;
+    margin:4px;
+}
+
+.linkitemimg{
+    width:38px;
+    height:38px;
+}
+
+
+
+/**
+ * PLAYER jplayer
+ */
+
+.jp-audio{
+    float:left;
+    margin: 12px;
+    border:2px solid;
+    border-color:#000000;
+    box-shadow: 10px 10px 5px rgba(0,0,0,0.5);
+    z-index:2;
+}
+
+.jp-video{
+    float:left;
+    margin: 12px;
+    border:2px solid;
+    border-color:#000000;
+    box-shadow: 10px 10px 5px rgba(0,0,0,0.5);
+}
+
+/**
+ * PLAYER codebasehero
+ */
+
+.codebaseherodiv{
+    float:left;
+    margin: 12px;
+    width: 370px;
+    z-index:2;
+}
+
+.ttw-music-player {
+    float:left;
+    width: 512px;
+    background-color:rgba(32, 32, 32, .9);
+    border:1px solid;
+    border-radius:8px;
+    box-shadow: 10px 10px 5px rgba(0,0,0,0.5);
+    font-family: 'Lato', arial, sans-serif;
+    margin: 12px;
+}
+
+/**
+ * PLAYER dewplayer
+ */
+
+.dewplayerdiv{
+    z-index:2;
+    float:left;
+    width: 240px;
+    background-color:rgba(255, 255, 255, .9);
+    border:1px solid;
+    border-radius:8px;
+    box-shadow: 10px 10px 5px rgba(0,0,0,0.5);
+    margin: 12px;
+}
+
+.dewplayervinyldiv{
+    z-index:2;
+    float:left;
+    width: 303px;
+    height: 113px;
+    background-color:rgba(255, 255, 255, .9);
+    border:1px solid;
+    border-radius:8px;
+    box-shadow: 10px 10px 5px rgba(0,0,0,0.5);
+    margin: 12px;
+}
+
+/**
+ * PLAYER xspfplayer
+ */
+
+.xspfplayerdiv{
+    z-index:2;
+    float:left;
+    width: 512px;
+    background-color:rgba(255, 255, 255, .9);
+    border:1px solid;
+    border-radius:8px;
+    box-shadow: 10px 10px 5px rgba(0,0,0,0.5);
+    margin: 12px;
+}
+
+.facebooklikebox{
+    float:left;
+    margin: 12px;
+    border:0px solid;
+    border-color:#000000;
+    background-color:rgba(255, 255, 255, 0.9);
+    box-shadow: 10px 10px 5px rgba(0,0,0,0.5);
+    z-index:2;
+}
+
+.soundcloudwidget{
+    float:left;
+    margin: 12px;
+    border:0px solid;
+    border-color:#000000;
+    background-color:rgba(255, 255, 255, 0.9);
+    box-shadow: 10px 10px 5px rgba(0,0,0,0.5);
+    z-index:2;
+}
+
+
+
+.rightenclosure{
+    width:660px;
+    float:right;
+    margin: 12px;
+    background-color:rgba(255, 255, 255, 0.9);
+    border:1px solid;
+    border-radius:8px;
+    box-shadow: 10px 10px 5px rgba(0,0,0,0.5);
+    z-index:0;
+}
+
+#googlesearcharea {
+    margin: 12px;
+    font-family: arial, helvetica, sans-serif;
+    background-color:rgba(200, 200, 200, 0.9);
+    border-radius:8px;
+    box-shadow: 5px 5px 2px rgba(0,0,0,0.5);
+}
+
+#googlesearchinput {
+    width:600px;
+}
+
+#googlesearchresults {
+    margin-bottom: 16px;
+    padding: 8px;
+    color: #620;
+}
+
+#googlesearchresults .gsc-results {
+  font-family: arial, helvetica, sans-serif;
+}
+
+#googlesearchresults .gsc-result {
+  position: relative;
+  border: 1px solid #eee;
+  border-left: 10px solid #eee;
+  padding: 8px 8px 8px 20px;
+  border-radius: 8px;
+  -webkit-border-radius: 8px;
+  -moz-border-radius: 8px;
+}
+
+#googlesearchresults .gsc-result:hover {
+  border: 1px solid #888;
+  border-left: 10px solid #888;
+}
+
+#googlesearchresults .gsc-result:hover .gs-result:before {
+  color: #333;
+}
+
+#googlesearchresults .gs-snippet {
+  color: #999;
+}
+
+#googlesearchresults .gsc-result:hover .gs-snippet {
+  color: #333;
+}
+
+/*#googlesearchresults .gsc-result:hover .gs-snippet b {
+  background-color: #fe9;
+  color: #000;
+}*/
+
+#googlesearchresults .gs-visibleUrl {
+  color: #c60;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+#googlesearchresults .gs-result:before {
+  color: #ccc;
+  position: absolute;
+  left: 8px;
+  top: 8px;
+}
+
+#googlesearchresults .gsc-trailing-more-results {
+  color: #620;
+}
+
+
+
+
+
+
+.directories{
+    max-height:280px;
+    overflow:auto;
+    margin: auto;
+}
+
+.directory{
+    width:100px;
+    float:right;
+    margin: 4px;
+}
+
+.directoryname{
+    font-family:"Verdana";
+    font-size:12px;
+    text-align:center;
+    word-wrap: break-word;
+}
+
+.images{
+    max-height:280px;
+    overflow:auto;
+    margin: auto;
+}
+
+.imagefile{
+    width:100px;
+    float:right;
+    margin: 4px;
+}
+
+.audio{
+    max-height:400px;
+    overflow:auto;
+    margin: auto;
+}
+
+.audiofile{
+    width:100px;
+    float:right;
+    margin: 4px;
+}
+
+.videofile{
+    width:100px;
+    float:right;
+    margin: 4px;
+}
+
+.miscs{
+    max-height:280px;
+    overflow:auto;
+    margin: auto;
+}
+
+.miscfile{
+    width:100px;
+    float:right;
+    margin: 4px;
+}
+
+.downloadfile{
+    width:100px;
+    float:right;
+    margin: 4px;
+}
+
+.filename{
+    font-family:"Verdana";
+    font-size:12px;
+    text-align:center;
+    word-wrap: break-word;
+}
+
+.status{
+    display:inline-block;
+    margin-top: 8px;
+    background-color:#DEDEDE;
+    border:2px solid;
+    border-color:#BCBCBC;
+    border-bottom-left-radius:8px;
+    border-top-right-radius:8px;
+    box-shadow: 5px 5px 5px rgba(0,0,0,0.5);
+}
+
+.statusname{
+    font-family:"Verdana";
+    font-size:12px;
+    word-wrap: break-word;
+}
+
+
+img{
+    opacity:0.7;
+    border:none;
+}
+
+img:hover{
+    opacity:1;
+    border:none;
+}
+
+.imgicon{
+    width:96px;
+    height:96px;
+}
+
+.imgclose{
+    width:16px;
+    height:16px;
+    vertical-align:middle;
+}
+
+.imgusr{
+    width:96px;
+    height:96px;
+    box-shadow: 5px 5px 5px rgba(0,0,0,0.5);
+}
+
+.imgusrpreview{
+    width:256px;
+    box-shadow: 5px 5px 5px rgba(0,0,0,0.5);
+}
+
+
+.footer{
+    position:fixed;
+    bottom:12px;
+    left:12px;
+    font-family:"Verdana";
+    font-size:12px;
+    display:inline-block;
+    background-color:#DEDEDE;
+    border:2px solid;
+    border-color:#BCBCBC;
+    border-bottom-left-radius:8px;
+    border-top-right-radius:8px;
+    z-index:0;
+}
+
+.filetag{
+    display:none;
+    width:660px;
+    margin-top: -50px;
+    margin-left: -610px;
+    font-family:"Verdana";
+    font-size:12px;
+    background-color:#DEDEDE;
+    border:2px solid;
+    border-color:#BCBCBC;
+    border-bottom-left-radius:8px;
+    border-top-right-radius:8px;
+    box-shadow: 10px 10px 5px rgba(0,0,0,0.5);
+}
+
+.filetagleft{
+    float:left;
+    margin:8px;
+    font-family:"Verdana";
+    font-size:12px;
+}
+.filetagright{
+    margin:8px;
+    font-family:"Verdana";
+    font-size:12px;
+}
+.filetagcenter{
+    max-height:256px;
+    overflow:auto;
+    margin:8px;
+    font-family:"Verdana";
+    font-size:12px;
+}
+
+.thumbdivlarge{
+    width:207px;
+    float:left;
+    margin: 4px;
+}
+.thumbimglarge{
+    width:203px;
+    height:203px;
+    box-shadow: 4px 4px 4px rgba(0,0,0,0.5);
+}
+.thumbdiv{
+    width:100px;
+    float:left;
+    margin: 4px;
+}
+.thumbimg{
+    width:96px;
+    height:96px;
+    box-shadow: 4px 4px 4px rgba(0,0,0,0.5);
+}
+
+pre{
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.filetaghover:hover + .filetag{display:block; position:absolute; z-index: 999999;}
+.filetag:hover{display:block; position:absolute; z-index: 999999;}
+
+table{border: 0px solid; width: 380px; table-layout: fixed;}
+td{vertical-align:top; word-wrap: break-word;}
+.tdleft{width:18%;}
+.tdseparator{height: 8px; background-color: #BCBCBC;}
+
+.m2hhighlight{
+    top:50%;
+    display:none;
+    width:654px;
+    position:absolute;
+    margin-left:20%;
+    margin-right:20%;
+    background-color:rgba(0, 0, 0, 0.8);
+    border:0px solid;
+    border-color:#000000;
+    border-radius:8px;
+    box-shadow: 10px 10px 5px rgba(0,0,0,0.5);
+    z-index:5;
+    margin-top:-120px;
+    font-family:"Verdana";
+    font-size:12px;
+    color: #BBBBBB;
+}
+
+.highclose{
+    width:638px;
+    margin:8px;
+    border-radius:4px;
+    height:18px;
+    font-size:12px;
+    background-color:rgba(200, 128, 128, 0.9);
+}
+
+.highclose:hover{
+    background-color:rgba(240, 168, 168, 0.9);
+}
+
+.hightitle{
+    font-size:16px;
+}
+
+.m2htext{
+    max-height:256px;
+    overflow:auto;
+}
+
